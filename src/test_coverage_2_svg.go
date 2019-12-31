@@ -1,13 +1,13 @@
 package main
 
 import (
+	"./filereader"
 	"bufio"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"strconv"
 	"strings"
+	"./types"
 )
 
 func main() {
@@ -28,18 +28,39 @@ func main() {
 		os.Exit(2)
 	}
 
-	commitDatas, err := readCommitFiles(repoName)
+	commitDatas, err := filereader.ReadCommitFiles(repoName)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(3)
 	}
 
-	commitDatas, err = deleteCommitFiles(commitDatas, branchNames)
+	_ = branchNames
+	// don't delete branches yet. Later on, when SVG becomes crowded, we will delete old data.
+	// commitDatas, err = deleteCommitFiles(commitDatas, branchNames)
 
 	fmt.Println("commitDatas", commitDatas)
+
+	svg := createSvg()
+	fmt.Println(svg)
 }
 
-func deleteCommitFiles(commitDatas []commitData, branchNames []string) ([]commitData, error) {
+func createSvg() string {
+	ret := `
+<?xml version="1.0"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="600" height="300">
+	<rect width="300" height="100" style="fill:#fff;stroke:#000099" />
+	
+	<!-- a text in the same place -->
+	<text y="90" style="stroke:#000099;fill:#000099;font-size:24;">chalmai/FS-1234</text>
+
+</svg>
+
+`
+	return ret
+}
+
+func deleteCommitFiles(commitDatas []types.CommitData, branchNames []string) ([]types.CommitData, error) {
 	branches := make(map[string]bool)
 
 	for _, branchName := range branchNames {
@@ -82,103 +103,6 @@ func readBranchNames() ([]string, error) {
 
 	if len(ret) == 0 {
 		return emptyList, errors.New("no branches found - probably wrong input")
-	}
-
-	return ret, nil
-}
-
-func readCommitFiles(repoName string) ([]commitData, error) {
-	var ret []commitData
-
-	dirName := "./" + repoName + "/"
-	f, err := os.Open(dirName)
-	if err != nil {
-		return ret, err
-	}
-
-	files, err := f.Readdir(-1)
-	defer f.Close()
-	if err != nil {
-		return ret, err
-	}
-
-	for _, file := range files {
-		fmt.Println("processing " + dirName + file.Name() + "...")
-		content, err := ioutil.ReadFile(dirName + file.Name())
-		if err != nil {
-			return ret, err
-		}
-
-		commitData, err := parseFile(string(content))
-		if err != nil {
-			return ret, err
-		}
-
-		ret = append(ret, commitData)
-	}
-
-	return ret, nil
-}
-
-type commitData struct {
-	commit string
-	branchName string
-	timeStamp string
-	min, max, avg float64
-}
-
-func parseFile(content string) (commitData, error) {
-	var ret commitData
-
-	lines := strings.Split(content, "\n")
-
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		suffix := line[strings.Index(line, ": "):]
-
-		if strings.HasPrefix(line, "commit: ") {
-			ret.commit = suffix
-			continue
-		}
-
-		if strings.HasPrefix(line, "branch: ") {
-			ret.branchName = suffix
-			continue
-		}
-
-		if strings.HasPrefix(line, "time: ") {
-			ret.timeStamp = suffix
-			continue
-		}
-
-		if strings.HasPrefix(line, "min") {
-			parts := strings.Split(line, " ")
-			if len(parts) < 6 {
-				return ret, errors.New("wrong min-max-avg line in commit file ")
-			}
-
-			min, err := strconv.ParseFloat(parts[1], 32)
-			if err != nil {
-				return ret, err
-			}
-			ret.min = min
-
-			max, err := strconv.ParseFloat(parts[3], 32)
-			if err != nil {
-				return ret, err
-			}
-			ret.max = max
-
-			avg, err := strconv.ParseFloat(parts[5], 32)
-			if err != nil {
-				return ret, err
-			}
-			ret.avg = avg
-
-			continue
-		}
 	}
 
 	return ret, nil
