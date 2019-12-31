@@ -1,6 +1,7 @@
 package filereader
 
 import (
+	"../types"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -8,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"../types"
 )
 
 func ReadCommitFiles(repoName string) ([]types.CommitData, error) {
